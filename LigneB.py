@@ -31,6 +31,20 @@ class LigneB:
             self.isOK=True
         except (Exception,e):
             print ("exception dans LigneB :",e)  # alors la ligneB sera déclarée no OK
+    
+    def getTimeStamp (self):
+        ''' retourne le timestamp d'une ligneB (position) '''
+        dateVol=self.date
+        heureUTCLigneB=self.heureUTC
+        jourPos= int(dateVol[0:2])
+        moisPos= int(dateVol[2:4])
+        anPos= int(dateVol[4:7])+2000
+        heurePos= int(heureUTCLigneB[0:2])
+        minutePos= int(heureUTCLigneB[2:4])
+        secondePos= int(heureUTCLigneB[4:6])
+        timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
+        return int(timestampPos)
+    
     def affiche(self):
         #print "**************"
         #print self.ligneI

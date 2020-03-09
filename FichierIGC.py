@@ -7,8 +7,9 @@ import time
 import datetime
 from distanceOrthodromique import distanceOrthodromique
 from capVitesse import capVitesse
+from deltaCap import deltaCap
 class FichierIGC:
-    def __init__(self,path):
+    def __init__(self,path):   # constructeur à partir du path du ficier IGC
         print ("nom du fichier igc : ",path)
         self.fichierIgc = open(path,"r")   # ouverture du fichier IGC en lecture seule
         self.lignesB=[]
@@ -45,10 +46,14 @@ class FichierIGC:
                 elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
                     if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
                         self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
-        self.fichierIgc.close()
-        
+        self.fichierIgc.close()   # fermeture du fichier IGC
+    
+    def getDateTime(self,rangLigneB):
+        ''' retourne la date et heure UTC d'une position '''
+        return datetime.datetime.fromtimestamp(self.getTimeStamp(rangLigneB))
+    
     def getTimeStamp (self,rangLigneB):
-        ''' retourne le timestamp d'une ligneB (position) '''
+        ''' retourne le timestamp d'une position '''
         dateVol=self.date
         heureUTCLigneB=self.lignesB[rangLigneB].heureUTC
         jourPos= int(dateVol[0:2])
@@ -58,13 +63,14 @@ class FichierIGC:
         minutePos= int(heureUTCLigneB[2:4])
         secondePos= int(heureUTCLigneB[4:6])
         timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
-        return int(timestampPos)
-    def getDateTime(self,timeStamp):
-        return datetime.datetime.fromtimestamp(timeStamp)
+        
+        return int(timestampPos) 
+    
     def getDeltaSecondes (self,rangLigneB):
-        ''' retourne la durée écoulée depuis la position précédante '''
+        ''' retourne la durée écoulée (s) depuis la position précédante '''
         if (rangLigneB==0): return None
         else : return self.getTimeStamp(rangLigneB)- self.getTimeStamp(rangLigneB-1)
+    
     def getVz(self,rangLigneB):
         ''' retourne la vitesse verticale (m/s) par rapport à la position précédante '''
         dt=self.getDeltaSecondes(rangLigneB)
@@ -75,13 +81,16 @@ class FichierIGC:
             altPrec=self.lignesB[rangLigneB-1].pressAlt
             vz= (alt-altPrec)/dt
             return vz
+    
     def getDistance(self,rangLigneB):
-        ''' retourne la distance (m) par rapport à la précédante position '''
+        ''' retourne la distance (m) parcourue depuis la position précedante '''
         if (rangLigneB==0):
             return None
         else :
             return distanceOrthodromique(self.lignesB[rangLigneB-1].long,self.lignesB[rangLigneB-1].lat,self.lignesB[rangLigneB].long,self.lignesB[rangLigneB].lat)
+    
     def getCapVitesse(self,rangLigneB):
+        ''' retourne le cap ]0,360] et vitesse (km/h) suivis depuis la position précédante '''
         dt=self.getDeltaSecondes(rangLigneB)
         if dt==None or dt==0: return(None,None)
         lon=self.lignesB[rangLigneB].long
@@ -90,6 +99,14 @@ class FichierIGC:
         latPrec=self.lignesB[rangLigneB-1].lat
         rep=capVitesse(lonPrec,latPrec,lon,lat,dt)
         return rep
+    def deltaCap(self,rangLigneB):
+        ''' retourne la variation de cap [-180.,180.] depuis la position précédante '''
+        assert rangLigneB in range(0,len(self.lignesB)), rangLigneB
+        if (rangLigneB<2): return (None)
+        (capBefore,_)=self.getCapVitesse(rangLigneB-1)
+        (capAfter,_)=self.getCapVitesse(rangLigneB)
+        return (deltaCap(capBefore,capAfter))
+
     def affiche(self):
         #print (self.__dict__)
         print ("lignes A : ",len(self.lignesA))

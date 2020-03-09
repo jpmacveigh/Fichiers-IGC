@@ -2,7 +2,7 @@
 from distanceOrthodromique import distanceOrthodromique
 import math
 def capVitesse (lona,lata,lonb,latb,deltat):
-    ''' Renvoit le cap ]0.,360.] et la vitesse (Km/h) suivi pour se rendre du point a au point b en deltat (secondes) '''
+    ''' Renvoit le cap ]0.,360.] et la vitesse (Km/h) suivi pour se rendre du point a (lona, lata) au point b (lonb,latb) en deltat (secondes) '''
     if deltat == 0. : return (None,None)
     distance = distanceOrthodromique (lona,lata,lonb,latb) #  distance entre a et b (mètres)
     if distance == 0.: return (0.,0.)
