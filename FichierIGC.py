@@ -5,12 +5,15 @@ from LigneK import LigneK
 from LigneJ import LigneJ
 import time
 import datetime
+import os
+import sqlite3
 from distanceOrthodromique import distanceOrthodromique
 from capVitesse import capVitesse
 from deltaCap import deltaCap
-class FichierIGC:
+class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par exemple)
     def __init__(self,path):   # constructeur à partir du path du ficier IGC
-        print ("nom du fichier igc : ",path)
+        #print ("nom du fichier igc : ",path)
+        self.path=path
         self.fichierIgc = open(path,"r")   # ouverture du fichier IGC en lecture seule
         self.lignesB=[]
         self.lignesA=[]
@@ -48,6 +51,28 @@ class FichierIGC:
                         self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
         self.fichierIgc.close()   # fermeture du fichier IGC
     
+    def make_SQLITE3_file (self):
+        ''' Fabrique une BD Sqlite3 avec toutes les positions du fichiers IGC '''
+        (file_name,_)=os.path.splitext(self.path)
+        path_sqlite3=file_name+".sqlite"  # la BD aura le même nom que le fichier igc avec l'extension sqlite
+        print (path_sqlite3)
+        conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
+        conn.execute("DROP TABLE positions")    # effacement puis re-céation de la table positions
+        cmd="CREATE TABLE positions("
+        cmd=cmd+"id_posi INT PRIMARY KEY,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL)"
+        conn.execute(cmd)
+        i=0
+        for ligne in self.lignesB :   # insertion des positions dans la table positions    
+            if ligne.isOK and i> 0 :
+                cmd=self.commande_insert(
+                    "positions",
+                    ["date","ts","lati","longi","alti","vz","cap","vit"],
+                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.gpsAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1]])
+                conn.execute(cmd)
+            i=i+1     
+        conn.commit()
+        conn.close()
+
     def getDateTime(self,rangLigneB):
         ''' retourne la date et heure UTC d'une position '''
         return datetime.datetime.fromtimestamp(self.getTimeStamp(rangLigneB))
@@ -63,9 +88,19 @@ class FichierIGC:
         minutePos= int(heureUTCLigneB[2:4])
         secondePos= int(heureUTCLigneB[4:6])
         timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
-        
-        return int(timestampPos) 
-    
+        return int(timestampPos)
+
+    def commande_insert(self,table_name,liste_champs,liste_valeurs):
+        cmd='INSERT INTO '+table_name+' ('
+        for champ in liste_champs:
+            cmd=cmd+champ+','
+        cmd=cmd[:-1]+') VALUES ('
+        for valeur in liste_valeurs:
+            cmd=cmd+str(valeur)+','
+        cmd=cmd[:-1]+')'
+        return (cmd)
+
+
     def getDeltaSecondes (self,rangLigneB):
         ''' retourne la durée écoulée (s) depuis la position précédante '''
         if (rangLigneB==0): return None
