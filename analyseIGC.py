@@ -4,6 +4,8 @@ flight=FichierIGC(path)
 
 flight.look_for_lift()
 flight.make_SQLITE3_file()
+for i in range(5):
+    flight.lignesB[i].affiche()
 """
 #flight.affiche()
 for i in range(len(flight.lignesB)):

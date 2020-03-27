@@ -69,7 +69,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 cmd=self.commande_insert(
                     "positions",
                     ["date","ts","lati","longi","alti","vz","cap","vit","isLift"],
-                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.gpsAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1],'"'+str(ligne.isLift)+'"'])
+                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.pressAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1],'"'+str(ligne.isLift)+'"'])
                 conn.execute(cmd)
             i=i+1     
         conn.commit()
