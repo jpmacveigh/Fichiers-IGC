@@ -1,8 +1,10 @@
 # -*- coding: utf8 -*-
+import time
 class LigneB:
     ''' une position (fix) décrite dans le fichier igc '''
     def __init__(self,ligneB,ligneI):
         self.isOK=False
+        self.isLift=False
         try:
             self.ligneB=ligneB
             self.ligneI=ligneI.ligneI
@@ -45,8 +47,12 @@ class LigneB:
         timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
         return int(timestampPos)
     
-    def affiche(self):
+    def affiche(self,liste_des_cles=None):
         #print "**************"
         #print self.ligneI
         #print self.ligneB
-        print (self.__dict__)
+        if (liste_des_cles==None):
+            print (self.__dict__)
+        else:
+            for cle in liste_des_cles:
+                print (cle+" : "+str(self.__dict__[cle]))

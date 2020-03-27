@@ -43,7 +43,9 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                         ligneB=LigneB(ligne,self.lignesI[0])
                     else:
                         ligneB=LigneB(ligne,LigneI("I000000000"))  # cas où il n'y a pas de ligneI
-                    if ligneB.isOK : self.lignesB.append(ligneB)   # on ignore les lignesB mal formées
+                    if ligneB.isOK : 
+                        ligneB.date=self.date
+                        self.lignesB.append(ligneB)   # on ignore les lignesB mal formées
                 elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
                     self.lignesG.append(ligne)
                 elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
@@ -59,37 +61,20 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
         conn.execute("DROP TABLE positions")    # effacement puis re-céation de la table positions
         cmd="CREATE TABLE positions("
-        cmd=cmd+"id_posi INT PRIMARY KEY,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL)"
+        cmd=cmd+"id_posi INT PRIMARY KEY,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL,isLift TEXT)"
         conn.execute(cmd)
         i=0
         for ligne in self.lignesB :   # insertion des positions dans la table positions    
             if ligne.isOK and i> 0 :
                 cmd=self.commande_insert(
                     "positions",
-                    ["date","ts","lati","longi","alti","vz","cap","vit"],
-                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.gpsAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1]])
+                    ["date","ts","lati","longi","alti","vz","cap","vit","isLift"],
+                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.gpsAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1],'"'+str(ligne.isLift)+'"'])
                 conn.execute(cmd)
             i=i+1     
         conn.commit()
         conn.close()
-
-    def getDateTime(self,rangLigneB):
-        ''' retourne la date et heure UTC d'une position '''
-        return datetime.datetime.fromtimestamp(self.getTimeStamp(rangLigneB))
     
-    def getTimeStamp (self,rangLigneB):
-        ''' retourne le timestamp d'une position '''
-        dateVol=self.date
-        heureUTCLigneB=self.lignesB[rangLigneB].heureUTC
-        jourPos= int(dateVol[0:2])
-        moisPos= int(dateVol[2:4])
-        anPos= int(dateVol[4:7])+2000
-        heurePos= int(heureUTCLigneB[0:2])
-        minutePos= int(heureUTCLigneB[2:4])
-        secondePos= int(heureUTCLigneB[4:6])
-        timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
-        return int(timestampPos)
-
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
         cmd='INSERT INTO '+table_name+' ('
         for champ in liste_champs:
@@ -100,6 +85,13 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         cmd=cmd[:-1]+')'
         return (cmd)
 
+    def getDateTime(self,rangLigneB):
+        ''' retourne la date et heure UTC d'une position '''
+        return datetime.datetime.fromtimestamp(self.getTimeStamp(rangLigneB))
+    
+    def getTimeStamp (self,rangLigneB):
+        ''' retourne le timestamp d'une position '''
+        return int(self.lignesB[rangLigneB].getTimeStamp())
 
     def getDeltaSecondes (self,rangLigneB):
         ''' retourne la durée écoulée (s) depuis la position précédante '''
@@ -134,6 +126,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         latPrec=self.lignesB[rangLigneB-1].lat
         rep=capVitesse(lonPrec,latPrec,lon,lat,dt)
         return rep
+    
     def deltaCap(self,rangLigneB):
         ''' retourne la variation de cap [-180.,180.] depuis la position précédante '''
         assert rangLigneB in range(0,len(self.lignesB)), rangLigneB
@@ -141,6 +134,24 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         (capBefore,_)=self.getCapVitesse(rangLigneB-1)
         (capAfter,_)=self.getCapVitesse(rangLigneB)
         return (deltaCap(capBefore,capAfter))
+    
+    def look_for_lift(self):
+        res=[]
+        deltat=240          # durée de la fenêtre temporelle (s)
+        distance_test=1500  # distance minimale (m)
+        lesLignes=[]    # les positions qui sont dans la fenêtre temporelle 
+        lesLignes.append(self.lignesB[0])
+        for ligne in self.lignesB:     # itération sur toutes les positions du fichiers
+            lesLignes.append(ligne)   
+            if (ligne.getTimeStamp()-lesLignes[0].getTimeStamp())>=deltat : # si on est à la fin de la fenêtre temporelle
+                distance=distanceOrthodromique(lesLignes[0].long,lesLignes[0].lat,ligne.long,ligne.lat) # on calcule la distance parcourrue depuis l'entrée dans la fenêtre temporelle
+                if distance <= distance_test : # on est dans une ascendance
+                    res.append(ligne)
+                    ligne.isLift=True
+                    #ligne.affiche(["lat","long"])
+                del lesLignes[0]  # on décalle la fenêtre d'une ligne
+        print (len(res))
+        return (res)       
 
     def affiche(self):
         #print (self.__dict__)
