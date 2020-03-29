@@ -7,6 +7,7 @@ import time
 import datetime
 import os
 import sqlite3
+import boto3
 from distanceOrthodromique import distanceOrthodromique
 from capVitesse import capVitesse
 from deltaCap import deltaCap
@@ -59,7 +60,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         path_sqlite3=file_name+".sqlite"  # la BD aura le même nom que le fichier igc avec l'extension sqlite
         print (path_sqlite3)
         conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
-        conn.execute("DROP TABLE positions")    # effacement puis re-céation de la table positions
+        conn.execute("DROP TABLE IF EXISTS positions")    # effacement puis re-céation de la table positions
         cmd="CREATE TABLE positions("
         cmd=cmd+"id_posi INT PRIMARY KEY,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL,isLift TEXT)"
         conn.execute(cmd)
@@ -69,11 +70,18 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 cmd=self.commande_insert(
                     "positions",
                     ["date","ts","lati","longi","alti","vz","cap","vit","isLift"],
-                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.pressAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1],'"'+str(ligne.isLift)+'"'])
+                    ['"'+str(self.getDateTime(i))+'"',self.getTimeStamp(i),ligne.lat,ligne.long,ligne.gpsAlt,self.getVz(i),self.getCapVitesse(i)[0],self.getCapVitesse(i)[1],'"'+str(ligne.isLift)+'"'])
                 conn.execute(cmd)
             i=i+1     
         conn.commit()
         conn.close()
+        # stockage du fichier créé dans un bucket de AWS S3
+        bucket_name="volavoile"
+        s3 = boto3.resource('s3')
+        #s3.Object(bucket_name,'newfile.txt').put(Body=content)
+        s3.Object(bucket_name,'igc_tempo.sqite').put(Body=open(path_sqlite3,'rb'))
+
+
     
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
         cmd='INSERT INTO '+table_name+' ('
@@ -104,8 +112,8 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         if dt==None : return None
         elif dt==0 : return None
         else :
-            alt=self.lignesB[rangLigneB].pressAlt
-            altPrec=self.lignesB[rangLigneB-1].pressAlt
+            alt=self.lignesB[rangLigneB].gpsAlt
+            altPrec=self.lignesB[rangLigneB-1].gpsAlt
             vz= (alt-altPrec)/dt
             return vz
     
