@@ -1,10 +1,13 @@
 # -*- coding: utf8 -*-
 import time
+import datetime
+import traceback
 class LigneB:
     ''' une position (fix) décrite dans le fichier igc '''
     def __init__(self,ligneB,ligneI):
         self.isOK=False
         self.isLift=False
+        self.date=""
         try:
             self.ligneB=ligneB
             self.ligneI=ligneI.ligneI
@@ -29,10 +32,14 @@ class LigneB:
             if ligneI.nbParam != 0:             # décodage de la partie de la ligneB décrite par la ligneI
                 for i in range(ligneI.nbParam):
                     (deb,fin,code)=ligneI.codes[i]
-                    self.__dict__[code] = ligneB[deb-1:fin]
+                    self.__dict__[code] = ligneB[deb-1:fin] 
             self.isOK=True
-        except (Exception,e):
-            print ("exception dans LigneB :",e)  # alors la ligneB sera déclarée no OK
+
+        except Exception as e :
+            print ("exception dans LigneB: ",e)  # alors la ligneB sera déclarée no OK
+            print (self.ligneB)
+            traceback.print_exc()
+            exit()
     
     def getTimeStamp (self):
         ''' retourne le timestamp d'une ligneB (position) '''
@@ -46,6 +53,10 @@ class LigneB:
         secondePos= int(heureUTCLigneB[4:6])
         timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
         return int(timestampPos)
+    
+    def getDateTime(self):
+        ''' retourne la date et heure UTC de la position '''
+        return datetime.datetime.utcfromtimestamp(self.getTimeStamp())
     
     def affiche(self,liste_des_cles=None):
         #print "**************"

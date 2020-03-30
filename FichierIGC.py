@@ -11,6 +11,7 @@ import boto3
 from distanceOrthodromique import distanceOrthodromique
 from capVitesse import capVitesse
 from deltaCap import deltaCap
+from Lift import Lift
 class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par exemple)
     def __init__(self,path):   # constructeur à partir du path du ficier IGC
         #print ("nom du fichier igc : ",path)
@@ -23,7 +24,8 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         self.lignesJ=[]
         self.lignesG=[]
         self.lignesK=[]
-        self.date="dd mm yy"
+        self.date="ddmmyy"
+        
         for ligne in self.fichierIgc:           # itération sur toutes les lignes du ficheir IGC et on en teste le premier caractère
             ligne=ligne.replace("\n","")        # supression du caractère de fin de ligne
             if len(ligne) >0:                   # on ne traite pas les lignes vides, car j'en ai trouvé !
@@ -44,8 +46,8 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                         ligneB=LigneB(ligne,self.lignesI[0])
                     else:
                         ligneB=LigneB(ligne,LigneI("I000000000"))  # cas où il n'y a pas de ligneI
-                    if ligneB.isOK : 
-                        ligneB.date=self.date
+                    ligneB.__dict__["date"]=self.date
+                    if ligneB.isOK :     
                         self.lignesB.append(ligneB)   # on ignore les lignesB mal formées
                 elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
                     self.lignesG.append(ligne)
@@ -61,9 +63,11 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         print (path_sqlite3)
         conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
         conn.execute("DROP TABLE IF EXISTS positions")    # effacement puis re-céation de la table positions
+        conn.commit()
         cmd="CREATE TABLE positions("
-        cmd=cmd+"id_posi INT PRIMARY KEY,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL,isLift TEXT)"
+        cmd=cmd+"id_posi INTEGER PRIMARY KEY AUTOINCREMENT,date TEXT,ts INTEGER,lati REAL,longi REAL,alti REAL,vz REAL, cap REAL,vit REAL,isLift TEXT)"
         conn.execute(cmd)
+        conn.commit()
         i=0
         for ligne in self.lignesB :   # insertion des positions dans la table positions    
             if ligne.isOK and i> 0 :
@@ -95,7 +99,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
 
     def getDateTime(self,rangLigneB):
         ''' retourne la date et heure UTC d'une position '''
-        return datetime.datetime.fromtimestamp(self.getTimeStamp(rangLigneB))
+        return datetime.datetime.utcfromtimestamp(self.getTimeStamp(rangLigneB))
     
     def getTimeStamp (self,rangLigneB):
         ''' retourne le timestamp d'une position '''
@@ -143,23 +147,47 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         (capAfter,_)=self.getCapVitesse(rangLigneB)
         return (deltaCap(capBefore,capAfter))
     
-    def look_for_lift(self):
+    def look_for_lift(self):   
+        ''' Détermine les positions qui sont dans une ascendance '''
         res=[]
-        deltat=240          # durée de la fenêtre temporelle (s)
-        distance_test=1500  # distance minimale (m)
+        deltat_lim=60         # durée de la fenêtre temporelle (s)
+        #distance_test=1500  # distance minimale (m)
         lesLignes=[]    # les positions qui sont dans la fenêtre temporelle 
         lesLignes.append(self.lignesB[0])
         for ligne in self.lignesB:     # itération sur toutes les positions du fichiers
-            lesLignes.append(ligne)   
-            if (ligne.getTimeStamp()-lesLignes[0].getTimeStamp())>=deltat : # si on est à la fin de la fenêtre temporelle
-                distance=distanceOrthodromique(lesLignes[0].long,lesLignes[0].lat,ligne.long,ligne.lat) # on calcule la distance parcourrue depuis l'entrée dans la fenêtre temporelle
-                if distance <= distance_test : # on est dans une ascendance
-                    res.append(ligne)
+            lesLignes.append(ligne)
+            deltat= ligne.getTimeStamp()-lesLignes[0].getTimeStamp() 
+            if (deltat)>=deltat_lim : # si on est à la fin de la fenêtre temporelle
+                #distance=distanceOrthodromique(lesLignes[0].long,lesLignes[0].lat,ligne.long,ligne.lat) # distance parcourrue depuis l'entrée dans la fenêtre temporelle
+                #if distance <= distance_test : # on est dans une ascendance
+                deltaz=ligne.gpsAlt-lesLignes[0].gpsAlt  # différence d'altitude depuis l'entrée dans la fenêtre temporelle
+                if deltaz>0 :   # on est dans une ascendance
                     ligne.isLift=True
+                    res.append(ligne)
                     #ligne.affiche(["lat","long"])
-                del lesLignes[0]  # on décalle la fenêtre d'une ligne
+                lesLignes.pop(0)  # on décalle la fenêtre d'une ligne en enlevant le premier point de la fenêtre
         print (len(res))
-        return (res)       
+        return (res)
+
+    def make_les_lifts(self):  # renvoi la listes des asendances du ficheir IGC
+        ''' renvoi la liste des asendances du ficheir IGC '''
+        res=[]
+        self.look_for_lift()
+        lesLifts=[]
+        lift=[]
+        for ligne in self.lignesB:
+            if not(ligne.isLift) :   # si la position est n'est pas dans une ascendance
+                if len(lift) >0 : 
+                    lesLifts.append(lift)
+                    lift=[]
+            else :                   # la posiiotn est dans une ascendance
+                lift.append(ligne)
+        if len(lift)>0 : lesLifts.append(lift)
+        for lift in lesLifts :
+            asc=Lift(lift)   # on fabrique un objet "Lift"
+            if (asc.duree>=20) : # on ne retient que leq ascendances de plus de 30 secondes
+                res.append(asc)  # que l'on ajoute à la listes des ascendances
+        return (res)
 
     def affiche(self):
         #print (self.__dict__)

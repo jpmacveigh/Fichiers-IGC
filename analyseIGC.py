@@ -3,11 +3,18 @@ from FichierIGC import FichierIGC
 path ="20190525 Bondues 25 mai 2019 Pégase DR.igc"
 #path ="20190616-2 Bondues 16 juin 2019 Discus GI.igc"
 flight=FichierIGC(path)
+lesLifts=flight.make_les_lifts()
+print (len(lesLifts))
+i=1
+for lift in lesLifts :
+    print ("asendance n°: ",i)
+    lift.affiche()
+    i=i+1
 
-flight.look_for_lift()
-flight.make_SQLITE3_file()
-for i in range(5):
-    flight.lignesB[i].affiche()
+#flight.look_for_lift()
+#flight.make_SQLITE3_file()
+#for i in range(5):
+ #   flight.lignesB[i].affiche()
 """
 #flight.affiche()
 for i in range(len(flight.lignesB)):
