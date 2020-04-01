@@ -12,6 +12,7 @@ from distanceOrthodromique import distanceOrthodromique
 from capVitesse import capVitesse
 from deltaCap import deltaCap
 from Lift import Lift
+from trace_histogramme import trace_histogramme
 class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par exemple)
     def __init__(self,path):   # constructeur à partir du path du ficier IGC
         #print ("nom du fichier igc : ",path)
@@ -33,7 +34,9 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                     self.lignesA.append(ligne)
                 elif ligne[0].upper() == "H" : # lignes H : en-tête
                     self.lignesH.append(ligne)
-                    if ligne[1:5].upper()=="FDTE":  # recherche de la date du vol
+                    if   ligne[1:10].upper()=="FDTEDATE:":  # nouvelle norme IGC après 2015
+                        self.date=ligne[10:16]      # date du vol : ddmmyy
+                    elif ligne[1:5].upper()=="FDTE":  # recherche de la date du vol
                         self.date=ligne[5:11]       # date du vol : ddmmyy
                 elif ligne[0].upper() == "I" :  # ligne I : (optionnelle) Précise les compléments des lignesB (vitessse sol(gsp), true track(trt), etc.)
                     ligneI=LigneI(ligne)
@@ -54,14 +57,17 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
                     if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
                         self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
+        for i in range(1,len(self.lignesB)) :  # on flague les LignesB pour lesquelles la vitesse est supérieur à un seuil
+            if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
         self.fichierIgc.close()   # fermeture du fichier IGC
     
     def make_SQLITE3_file (self):
-        ''' Fabrique une BD Sqlite3 avec toutes les positions du fichiers IGC '''
+        ''' Fabrique une BD Sqlite3 avec toutes les information relatives au fichiers IGC '''
         (file_name,_)=os.path.splitext(self.path)
         path_sqlite3=file_name+".sqlite"  # la BD aura le même nom que le fichier igc avec l'extension sqlite
         print (path_sqlite3)
         conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
+        # création d'une tables pour les positions contenues dans la fichier IGC
         conn.execute("DROP TABLE IF EXISTS positions")    # effacement puis re-céation de la table positions
         conn.commit()
         cmd="CREATE TABLE positions("
@@ -78,15 +84,37 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 conn.execute(cmd)
             i=i+1     
         conn.commit()
+        # création d'une table pour les acsendances identifiées dans le ficheir IGC
+        conn.execute("DROP TABLE IF EXISTS ascendances")    # effacement puis re-céation de la table positions
+        conn.commit()
+        cmd="CREATE TABLE ascendances("  # la table des ascendances
+        cmd=cmd+"id_ascend INTEGER PRIMARY KEY AUTOINCREMENT,"
+        cmd=cmd+"ts_deb INTEGER,ts_fin INTEGER,date_deb TEXT,date_fin TEXT,"
+        cmd=cmd+"lati_deb REAL,longi_deb REAL,lati_fin REAL,longi_fin REAL,"
+        cmd=cmd+"alti_deb INTEGER,alti_fin INTEGER,alti_min INETEGR,alti_max INTEGER,"
+        cmd=cmd+"duree INTEGER,gain_alti INTEGER,vz_moy REAL)"
+        conn.execute(cmd)
+        conn.commit()
+        # Ecriture de la table des ascendances
+        list_champs= ["ts_deb","ts_fin","date_deb","date_fin"]
+        list_champs=list_champs+["lati_deb","longi_deb","lati_fin","longi_fin"]
+        list_champs=list_champs+["alti_deb","alti_fin","alti_min","alti_max"]
+        list_champs=list_champs+["duree","gain_alti","vz_moy"]
+        for asc in self.lesLifts :
+            list_valeurs=[asc.ts_deb,asc.ts_fin,'"'+str(asc.datetime_deb) +'"','"'+str(asc.datetime_fin) +'"']
+            list_valeurs=list_valeurs+[asc.lati_deb,asc.longi_deb,asc.lati_fin,asc.longi_fin]
+            list_valeurs=list_valeurs+[asc.alti_deb,asc.alti_fin,asc.alti_min,asc.alti_max]
+            list_valeurs=list_valeurs+[asc.duree,asc.gain_alti,asc.vz_moyenne]
+            cmd=self.commande_insert("ascendances",list_champs,list_valeurs)
+            conn.execute(cmd)
+        conn.commit()
         conn.close()
         # stockage du fichier créé dans un bucket de AWS S3
         bucket_name="volavoile"
         s3 = boto3.resource('s3')
         #s3.Object(bucket_name,'newfile.txt').put(Body=content)
         s3.Object(bucket_name,'igc_tempo.sqite').put(Body=open(path_sqlite3,'rb'))
-
-
-    
+   
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
         cmd='INSERT INTO '+table_name+' ('
         for champ in liste_champs:
@@ -148,24 +176,27 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         return (deltaCap(capBefore,capAfter))
     
     def look_for_lift(self):   
-        ''' Détermine les positions qui sont dans une ascendance '''
+        ''' Détermine les positions en vol qui sont dans une ascendance '''
         res=[]
-        deltat_lim=60         # durée de la fenêtre temporelle (s)
+        deltat_lim=30         # durée de la fenêtre temporelle (s)
         #distance_test=1500  # distance minimale (m)
-        lesLignes=[]    # les positions qui sont dans la fenêtre temporelle 
-        lesLignes.append(self.lignesB[0])
-        for ligne in self.lignesB:     # itération sur toutes les positions du fichiers
+        lesLignes=[]    # les positions qui sont dans la fenêtre temporelle
+        lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True] 
+        lesLignes.append(lesInFlights[0])
+        for ligne in lesInFlights:     # itération sur toutes les positions en vol du fichiers
             lesLignes.append(ligne)
             deltat= ligne.getTimeStamp()-lesLignes[0].getTimeStamp() 
             if (deltat)>=deltat_lim : # si on est à la fin de la fenêtre temporelle
                 #distance=distanceOrthodromique(lesLignes[0].long,lesLignes[0].lat,ligne.long,ligne.lat) # distance parcourrue depuis l'entrée dans la fenêtre temporelle
                 #if distance <= distance_test : # on est dans une ascendance
                 deltaz=ligne.gpsAlt-lesLignes[0].gpsAlt  # différence d'altitude depuis l'entrée dans la fenêtre temporelle
+                #print (lesLignes[0].getDateTime(),lesLignes[-1].getDateTime(),ligne.getDateTime())
                 if deltaz>0 :   # on est dans une ascendance
                     ligne.isLift=True
                     res.append(ligne)
                     #ligne.affiche(["lat","long"])
-                lesLignes.pop(0)  # on décalle la fenêtre d'une ligne en enlevant le premier point de la fenêtre
+                while ligne.getTimeStamp()-lesLignes[0].getTimeStamp() > deltat_lim :
+                    lesLignes.pop(0)  # on décalle la fenêtre d'une ligne en enlevant le premier point de la fenêtre
         print (len(res))
         return (res)
 
@@ -184,10 +215,19 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 lift.append(ligne)
         if len(lift)>0 : lesLifts.append(lift)
         for lift in lesLifts :
-            asc=Lift(lift)   # on fabrique un objet "Lift"
-            if (asc.duree>=20) : # on ne retient que leq ascendances de plus de 30 secondes
-                res.append(asc)  # que l'on ajoute à la listes des ascendances
+            if len(lift)>1 :
+                asc=Lift(lift)   # on fabrique un objet "Lift"
+                if (asc.duree>=30) : # on ne retient que les ascendances de plus de 30 secondes
+                    res.append(asc)  # que l'on ajoute à la listes des ascendances
+        self.lesLifts=res
         return (res)
+
+    def make_histogramme_des_vitesses(self):
+        ''' trace l'histogramme des vitesses de toutes les LignesB '''
+        data=[]
+        for i in range(1,len(self.lignesB)):
+            data.append(self.getCapVitesse(i)[1])
+        trace_histogramme(data,self.path,"Vitesses (Km/h)",100,-20.,200.)
 
     def affiche(self):
         #print (self.__dict__)

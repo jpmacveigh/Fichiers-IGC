@@ -7,6 +7,7 @@ class LigneB:
     def __init__(self,ligneB,ligneI):
         self.isOK=False
         self.isLift=False
+        self.isInFlight=False
         self.date=""
         try:
             self.ligneB=ligneB

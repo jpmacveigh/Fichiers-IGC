@@ -1,7 +1,9 @@
 from FichierIGC import FichierIGC
 #path ="20140627 Saint-Auban 27 juin 2014 Discus 2b DP Copie de 46RXI0H1.igc"
-path ="20190525 Bondues 25 mai 2019 Pégase DR.igc"
-#path ="20190616-2 Bondues 16 juin 2019 Discus GI.igc"
+#path ="20190525 Bondues 25 mai 2019 Pégase DR.igc"
+path ="20190616-2 Bondues 16 juin 2019 Discus GI.igc"
+#path="NetCoupe2020_22.igc"
+#path="NetCoupe2020_2658.igc"
 flight=FichierIGC(path)
 lesLifts=flight.make_les_lifts()
 print (len(lesLifts))
@@ -12,7 +14,8 @@ for lift in lesLifts :
     i=i+1
 
 #flight.look_for_lift()
-#flight.make_SQLITE3_file()
+flight.make_SQLITE3_file()
+flight.make_histogramme_des_vitesses()
 #for i in range(5):
  #   flight.lignesB[i].affiche()
 """
