@@ -3,6 +3,8 @@ from LigneI import LigneI
 from LigneB import LigneB
 from LigneK import LigneK
 from LigneJ import LigneJ
+from lowner_john_ellipse import *
+from matplotlib import pyplot as plt
 import time
 import datetime
 import os
@@ -64,9 +66,9 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
     def make_SQLITE3_file (self):
         ''' Fabrique une BD Sqlite3 avec toutes les information relatives au fichiers IGC '''
         (file_name,_)=os.path.splitext(self.path)
-        path_sqlite3=file_name+".sqlite"  # la BD aura le même nom que le fichier igc avec l'extension sqlite
-        print (path_sqlite3)
-        conn=sqlite3.connect(path_sqlite3)      # creation de la base Sqlite3"
+        self.path_sqlite3=file_name+".sqlite"  # la BD aura le même nom que le fichier igc avec l'extension sqlite
+        print (self.path_sqlite3)
+        conn=sqlite3.connect(self.path_sqlite3)      # creation de la base Sqlite3"
         # création d'une tables pour les positions contenues dans la fichier IGC
         conn.execute("DROP TABLE IF EXISTS positions")    # effacement puis re-céation de la table positions
         conn.commit()
@@ -113,7 +115,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         bucket_name="volavoile"
         s3 = boto3.resource('s3')
         #s3.Object(bucket_name,'newfile.txt').put(Body=content)
-        s3.Object(bucket_name,'igc_tempo.sqite').put(Body=open(path_sqlite3,'rb'))
+        s3.Object(bucket_name,'igc_tempo.sqite').put(Body=open(self.path_sqlite3,'rb'))
    
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
         cmd='INSERT INTO '+table_name+' ('
@@ -125,6 +127,31 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         cmd=cmd[:-1]+')'
         return (cmd)
 
+    def make_les_ellipses(self):
+        conn=sqlite3.connect(self.path_sqlite3)
+        res=conn.execute("SELECT ts_deb,ts_fin FROM ascendances").fetchall()
+        conn.commit()
+        num_asc=0
+        for asc in self.lesLifts  :
+            cmd="SELECT longi,lati FROM positions WHERE ts>="
+            cmd=cmd+str(res[num_asc][0])+" AND ts<="+str(res[num_asc][1])
+            print (cmd)
+            les_points= conn.execute(cmd).fetchall()
+            points=np.zeros((len(les_points),2))
+            i=0
+            for x in les_points:
+                #print(x)
+                points[i,0]=x[0]
+                points[i,1]=x[1]
+                i=i+1
+            #plt.figure()
+            #plt.plot(points[:, 0], points[:, 1], '.')
+            enclosing_ellipse = welzl(points)  # find enclosing ellipse           
+            print(enclosing_ellipse)
+            #plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
+            #plt.show()
+            num_asc=num_asc+1
+    
     def getDateTime(self,rangLigneB):
         ''' retourne la date et heure UTC d'une position '''
         return datetime.datetime.utcfromtimestamp(self.getTimeStamp(rangLigneB))
@@ -228,7 +255,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         for i in range(1,len(self.lignesB)):
             data.append(self.getCapVitesse(i)[1])
         trace_histogramme(data,self.path,"Vitesses (Km/h)",100,-20.,200.)
-
+    
     def affiche(self):
         #print (self.__dict__)
         print ("lignes A : ",len(self.lignesA))
