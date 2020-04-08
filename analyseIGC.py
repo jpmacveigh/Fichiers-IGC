@@ -1,7 +1,8 @@
 from FichierIGC import FichierIGC
 #path ="20140627 Saint-Auban 27 juin 2014 Discus 2b DP Copie de 46RXI0H1.igc"
-path ="20190525 Bondues 25 mai 2019 Pegase DR.igc"
+#path ="20190525 Bondues 25 mai 2019 Pegase DR.igc"
 #path ="20190616-2 Bondues 16 juin 2019 Discus GI.igc"
+path="20190601 Soissons 1er juin 2019 Pégase DR.igc"
 #path="NetCoupe2020_22.igc"
 #path="NetCoupe2020_2658.igc"
 flight=FichierIGC(path)

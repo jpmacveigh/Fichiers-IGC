@@ -16,10 +16,14 @@
 				height:600px;
 			}
 		</style>
+		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  		<link rel="stylesheet" href="leaflet-beautify-marker-icon.css">
+  		<script src="leaflet-beautify-marker-icon.js"></script>
 	</head>
 	<body>
 		<div id="map"></div>  <!-- Ici s'affichera la carte -->
 	</body>
+	<script src="l.ellipse.js"></script>
 	<script type="text/javascript">
 		// On initialise la latitude et la longitude de Lille (centre de la carte)
 		var macarte = null;
@@ -69,17 +73,46 @@
 						popup=popup+"&nbsp &nbsp vz : "+res["points"][i]["vz"].toFixed(1)+" m/s";
 					}
 					if (res["points"][i]["isLift"] == "False") {    // si vz <= 0, marker bleu
-						L.marker([res["points"][i]["lati"],res["points"][i]["longi"]], {icon: blueIcon}).addTo(macarte).bindPopup(popup);
+						//L.marker([res["points"][i]["lati"],res["points"][i]["longi"]], {icon: blueIcon}).addTo(macarte).bindPopup(popup);
 					}
 					else {    // sinon, marker rouge
-						L.marker([res["points"][i]["lati"],res["points"][i]["longi"]], {icon: redIcon}).addTo(macarte).bindPopup(popup);
+						//L.marker([res["points"][i]["lati"],res["points"][i]["longi"]], {icon: redIcon}).addTo(macarte).bindPopup(popup);
 					}
 			  	}
 				var poly=L.polyline(latlng).addTo(macarte);   // afficahge du tracé de la trajectoire
-            	L.control.scale().addTo(macarte);				
-            })
+				L.control.scale().addTo(macarte);
+				console.log(res["ascendances"].length);
+				for(var i=0;i<res["ascendances"].length;i++){
+					console.log(i,res["ascendances"][i])
+					var lati_centre=res["ascendances"][i]["lati_centre"];
+					var longi_centre=res["ascendances"][i]["longi_centre"];
+					var major_axis=res["ascendances"][i]["major_axis"];
+					var minor_axis=res["ascendances"][i]["minor_axis"];
+					console.log(major_axis,minor_axis);
+					var rotation_angle=res["ascendances"][i]["rotation_angle"];
+					//var ellipse = L.ellipse([50.7,3.07],[500, 300],45).addTo(macarte);
+					//var ellipse = L.ellipse([lati_centre,longi_centre],[major_axis,minor_axis],rotation_angle).addTo(macarte);			
+					var lesPoints=getPointsEllipse(longi_centre,lati_centre,major_axis,minor_axis,rotation_angle,300);
+					console.log(lesPoints);
+					L.polyline(lesPoints,{color:"red"}).addTo(macarte);  // tracé des points de l'ellipse
+					//L.marker([lati_centre,longi_centre], {icon: redIcon}).addTo(macarte);	// ajout d'un marker au centre de l'ellipse			
+					var popup="N° : "+i+"<br>"+res["ascendances"][i]["date_deb"]+"&nbsp à : "+res["ascendances"][i]["date_fin"]+"&nbsp durée: "+res["ascendances"][i]["duree"]+" sec";
+					popup=popup+"<br>"+res["ascendances"][i]["alti_deb"] +" m &nbsp à : "+res["ascendances"][i]["alti_fin"] +" m &nbsp gain: "+res["ascendances"][i]["gain_alti"] +" m";
+					popup=popup+"&nbsp vz: "+res["ascendances"][i]["vz_moy"].toFixed(1) +" m/s";
+        			var options = {
+            			isAlphaNumericIcon: true,
+                		text: i,
+                		iconShape: 'marker',
+                		borderColor: '#00ABDC',
+						textColor: '#00ABDC'	
+					};
+					L.marker([lati_centre,longi_centre], { icon: L.BeautifyIcon.icon(options), draggable: false }).addTo(macarte).bindPopup(popup);
+				
+				}
+			})
             .catch(function(res){
 				console.log("getTrajectoire s'est planté ! res :" + res);
+				console.trace();
             });
         }
 		window.onload = function(){	
@@ -167,5 +200,30 @@
 				});
 			});	
 		};
+		function getPointsEllipse(longi_centre,lati_centre,major_axis,minor_axis,rotatio_angle,nb_points){
+			// calcul des coordonnées des points d'une ellipse définie par la position de son centre,
+			// ses demi grands et petits axes et son angle de rotation
+			var lesPoints=[];
+			major_axis=major_axis*Math.cos(rotatio_angle);
+			minor_axis=minor_axis*Math.cos(rotatio_angle);
+			console.log(major_axis,minor_axis);
+			for (var i=0;i<nb_points;i++){
+				var teta=i*2*Math.PI/(nb_points-1);
+				var teto=teta+rotatio_angle;
+				let numer=major_axis*minor_axis;
+				var denom=   Math.pow(minor_axis,2.)*Math.pow(Math.cos(teto),2.);
+				denom=denom+ Math.pow(major_axis,2.)*Math.pow(Math.sin(teto),2.);
+				denom=Math.pow(denom,0.5);
+				rau=numer/denom;   // la distance du point de l'ellipse au centre de l'ellipse
+				let longi=longi_centre+rau*Math.cos(teta);  // longitude du point
+				let lati=lati_centre-rau*Math.sin(teta);    // latitude du point
+				lesPoints[i]=[lati,longi];	
+			}
+			return(lesPoints);
+		};
+		function sample_ellipse (ellipse, num_pts){
+			var endpoint=true;
+		}
+		 
 	</script>
 </html>

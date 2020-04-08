@@ -94,10 +94,11 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         cmd=cmd+"ts_deb INTEGER,ts_fin INTEGER,date_deb TEXT,date_fin TEXT,"
         cmd=cmd+"lati_deb REAL,longi_deb REAL,lati_fin REAL,longi_fin REAL,"
         cmd=cmd+"alti_deb INTEGER,alti_fin INTEGER,alti_min INETEGR,alti_max INTEGER,"
-        cmd=cmd+"duree INTEGER,gain_alti INTEGER,vz_moy REAL)"
+        cmd=cmd+"duree INTEGER,gain_alti INTEGER,vz_moy REAL,"
+        cmd=cmd+"lati_centre REAL,longi_centre REAL, major_axis REAL, minor_axis REAL, rotation_angle REAL)"
         conn.execute(cmd)
         conn.commit()
-        # Ecriture de la table des ascendances
+        # Ecriture dans la table des ascendances
         list_champs= ["ts_deb","ts_fin","date_deb","date_fin"]
         list_champs=list_champs+["lati_deb","longi_deb","lati_fin","longi_fin"]
         list_champs=list_champs+["alti_deb","alti_fin","alti_min","alti_max"]
@@ -111,11 +112,13 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
             conn.execute(cmd)
         conn.commit()
         conn.close()
-        # stockage du fichier créé dans un bucket de AWS S3
-        bucket_name="volavoile"
-        s3 = boto3.resource('s3')
-        #s3.Object(bucket_name,'newfile.txt').put(Body=content)
-        s3.Object(bucket_name,'igc_tempo.sqite').put(Body=open(self.path_sqlite3,'rb'))
+        
+    def send_sqlite_to_s3(self):
+            # stockage du fichier créé dans un bucket de AWS S3
+            bucket_name="volavoile"
+            s3 = boto3.resource('s3')
+            #s3.Object(bucket_name,'newfile.txt').put(Body=content)
+            s3.Object(bucket_name,'igc_tempo.sqlite').put(Body=open(self.path_sqlite3,'rb'))
    
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
         cmd='INSERT INTO '+table_name+' ('
@@ -129,29 +132,41 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
 
     def make_les_ellipses(self):
         conn=sqlite3.connect(self.path_sqlite3)
-        res=conn.execute("SELECT ts_deb,ts_fin FROM ascendances").fetchall()
+        res=conn.execute("SELECT ts_deb,ts_fin FROM ascendances").fetchall()  # lecture des ts de debut et fin des acendances
         conn.commit()
         num_asc=0
-        for asc in self.lesLifts  :
+        for asc in self.lesLifts  :      # itérations sur les ascendances identifiées dans lle fichier IGC
             cmd="SELECT longi,lati FROM positions WHERE ts>="
             cmd=cmd+str(res[num_asc][0])+" AND ts<="+str(res[num_asc][1])
             print (cmd)
-            les_points= conn.execute(cmd).fetchall()
+            les_points= conn.execute(cmd).fetchall()   # lecture de la liste des positions de l'ascendance
             points=np.zeros((len(les_points),2))
             i=0
-            for x in les_points:
+            for x in les_points:   #  fabrication du tableau d'entrée pour le programme de calcul de l'ellipse minimale
                 #print(x)
                 points[i,0]=x[0]
                 points[i,1]=x[1]
                 i=i+1
-            #plt.figure()
-            #plt.plot(points[:, 0], points[:, 1], '.')
-            enclosing_ellipse = welzl(points)  # find enclosing ellipse           
+            plt.figure()
+            plt.plot(points[:, 0], points[:, 1], '.')
+            enclosing_ellipse = welzl(points)  # find enclosing Lowner-John ellipse           
+            (centre,major_axis,minor_axis,rotation_angle)=enclosing_ellipse
             print(enclosing_ellipse)
-            #plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
-            #plt.show()
+            rotation_angle=rotation_angle
+            cmd="UPDATE ascendances SET "
+            cmd=cmd+"longi_centre = "+str(centre[0])+", "
+            cmd=cmd+"lati_centre = "+str(centre[1])+", "
+            cmd=cmd+"major_axis = "+str(major_axis)+", "
+            cmd=cmd+"minor_axis = "+str(minor_axis)+", "
+            cmd=cmd+"rotation_angle = "+str(rotation_angle)+" "
+            cmd=cmd+" WHERE id_ascend = "+str(num_asc+1)
+            print(cmd)
+            conn.execute(cmd)    # écriture des paramètres de l'ellipse dans la table des ascendances
+            conn.commit()
+            plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
+            plt.show()
             num_asc=num_asc+1
-    
+        self.send_sqlite_to_s3()    
     def getDateTime(self,rangLigneB):
         ''' retourne la date et heure UTC d'une position '''
         return datetime.datetime.utcfromtimestamp(self.getTimeStamp(rangLigneB))
