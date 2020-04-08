@@ -147,8 +147,8 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 points[i,0]=x[0]
                 points[i,1]=x[1]
                 i=i+1
-            plt.figure()
-            plt.plot(points[:, 0], points[:, 1], '.')
+            #plt.figure()
+            #plt.plot(points[:, 0], points[:, 1], '.')
             enclosing_ellipse = welzl(points)  # find enclosing Lowner-John ellipse           
             (centre,major_axis,minor_axis,rotation_angle)=enclosing_ellipse
             print(enclosing_ellipse)
@@ -163,8 +163,8 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
             print(cmd)
             conn.execute(cmd)    # écriture des paramètres de l'ellipse dans la table des ascendances
             conn.commit()
-            plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
-            plt.show()
+            #plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
+            #plt.show()
             num_asc=num_asc+1
         self.send_sqlite_to_s3()    
     def getDateTime(self,rangLigneB):

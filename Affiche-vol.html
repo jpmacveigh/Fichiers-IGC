@@ -200,23 +200,20 @@
 				});
 			});	
 		};
+		
 		function getPointsEllipse(longi_centre,lati_centre,major_axis,minor_axis,rotatio_angle,nb_points){
 			// calcul des coordonnées des points d'une ellipse définie par la position de son centre,
 			// ses demi grands et petits axes et son angle de rotation
+			// ref : https://fr.wikipedia.org/wiki/Ellipse_(math%C3%A9matiques)
 			var lesPoints=[];
-			major_axis=major_axis*Math.cos(rotatio_angle);
-			minor_axis=minor_axis*Math.cos(rotatio_angle);
-			console.log(major_axis,minor_axis);
+			let cos_teta=Math.cos(rotatio_angle);
+			let sin_teta=Math.sin(rotatio_angle);
 			for (var i=0;i<nb_points;i++){
-				var teta=i*2*Math.PI/(nb_points-1);
-				var teto=teta+rotatio_angle;
-				let numer=major_axis*minor_axis;
-				var denom=   Math.pow(minor_axis,2.)*Math.pow(Math.cos(teto),2.);
-				denom=denom+ Math.pow(major_axis,2.)*Math.pow(Math.sin(teto),2.);
-				denom=Math.pow(denom,0.5);
-				rau=numer/denom;   // la distance du point de l'ellipse au centre de l'ellipse
-				let longi=longi_centre+rau*Math.cos(teta);  // longitude du point
-				let lati=lati_centre-rau*Math.sin(teta);    // latitude du point
+				let t=i*2*Math.PI/(nb_points-1);
+				let cos_t= Math.cos(t);
+				let sin_t= Math.sin(t);
+				let longi=longi_centre + major_axis*cos_teta*cos_t - minor_axis*sin_teta*sin_t; // longitude du point
+				let lati= lati_centre  + major_axis*sin_teta*cos_t + minor_axis*cos_teta*sin_t; // latitude du point
 				lesPoints[i]=[lati,longi];	
 			}
 			return(lesPoints);
