@@ -5,10 +5,10 @@ import traceback
 class LigneB:
     ''' une position (fix) décrite dans le fichier igc '''
     def __init__(self,ligneB,ligneI):
-        self.isOK=False
-        self.isLift=False
-        self.isInFlight=False
         self.date=""
+        self.isOK=False          # si la LigneB est syntaxiquement correcte
+        self.isLift=False        # si elle est dans une ascendance
+        self.isInFlight=False    # si elle est pendant le vol (vitesse > 25 km/h)
         try:
             self.ligneB=ligneB
             self.ligneI=ligneI.ligneI
@@ -52,7 +52,7 @@ class LigneB:
         heurePos= int(heureUTCLigneB[0:2])
         minutePos= int(heureUTCLigneB[2:4])
         secondePos= int(heureUTCLigneB[4:6])
-        timestampPos = time.mktime((anPos,moisPos,jourPos,heurePos,minutePos,secondePos,0,0,-1)) # -1 indique que c'est une heure UTC
+        timestampPos = datetime.datetime(anPos,moisPos,jourPos,heurePos,minutePos,secondePos,tzinfo=datetime.timezone.utc).timestamp()  # la date et l'heure fournies par le ficheir IGC sont en UTC
         return int(timestampPos)
     
     def getDateTime(self):

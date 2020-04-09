@@ -51,7 +51,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                         ligneB=LigneB(ligne,self.lignesI[0])
                     else:
                         ligneB=LigneB(ligne,LigneI("I000000000"))  # cas où il n'y a pas de ligneI
-                    ligneB.__dict__["date"]=self.date
+                    ligneB.date=self.date   # on initialise le paramètre "date" de la LigneB
                     if ligneB.isOK :     
                         self.lignesB.append(ligneB)   # on ignore les lignesB mal formées
                 elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
