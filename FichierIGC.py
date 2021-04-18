@@ -28,7 +28,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         self.lignesG=[]
         self.lignesK=[]
         self.date="ddmmyy"
-        
+        heure_prec_ligneB="000000"
         for ligne in self.fichierIgc:           # itération sur toutes les lignes du ficheir IGC et on en teste le premier caractère
             ligne=ligne.replace("\n","")        # supression du caractère de fin de ligne
             if len(ligne) >0:                   # on ne traite pas les lignes vides, car j'en ai trouvé !
@@ -52,14 +52,16 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                     else:
                         ligneB=LigneB(ligne,LigneI("I000000000"))  # cas où il n'y a pas de ligneI
                     ligneB.date=self.date   # on initialise le paramètre "date" de la LigneB
-                    if ligneB.isOK :     
-                        self.lignesB.append(ligneB)   # on ignore les lignesB mal formées
+                    if ligneB.isOK and (not ligneB.heureUTC==heure_prec_ligneB) :  # on ignore les lignesB mal formées et deux consécutives qui portent la même heure   
+                        self.lignesB.append(ligneB)   
+                        heure_prec_ligneB=ligneB.heureUTC               
                 elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
                     self.lignesG.append(ligne)
                 elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
                     if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
                         self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
         for i in range(1,len(self.lignesB)) :  # on flague les LignesB pour lesquelles la vitesse est supérieur à un seuil
+            #print(i,self.getCapVitesse(i)[1],self.lignesB[i-1].affiche(),self.lignesB[i].affiche())
             if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
         self.fichierIgc.close()   # fermeture du fichier IGC
     
@@ -201,7 +203,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
     def getCapVitesse(self,rangLigneB):
         ''' retourne le cap ]0,360] et vitesse (km/h) suivis depuis la position précédante '''
         dt=self.getDeltaSecondes(rangLigneB)
-        if dt==None or dt==0: return(None,None)
+        if dt==None : return(None,None)
         lon=self.lignesB[rangLigneB].long
         lonPrec=self.lignesB[rangLigneB-1].long
         lat=self.lignesB[rangLigneB].lat
@@ -221,6 +223,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         ''' Détermine les positions en vol qui sont dans une ascendance '''
         res=[]
         deltat_lim=30         # durée de la fenêtre temporelle (s)
+        seuil_z=30            # seuil d'élévation minimale sur le fenêtre teporelle (m)
         #distance_test=1500  # distance minimale (m)
         lesLignes=[]    # les positions qui sont dans la fenêtre temporelle
         lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True] 
@@ -233,7 +236,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 #if distance <= distance_test : # on est dans une ascendance
                 deltaz=ligne.gpsAlt-lesLignes[0].gpsAlt  # différence d'altitude depuis l'entrée dans la fenêtre temporelle
                 #print (lesLignes[0].getDateTime(),lesLignes[-1].getDateTime(),ligne.getDateTime())
-                if deltaz>0 :   # on est dans une ascendance
+                if deltaz>seuil_z :   # on est dans une ascendance
                     ligne.isLift=True
                     res.append(ligne)
                     #ligne.affiche(["lat","long"])
