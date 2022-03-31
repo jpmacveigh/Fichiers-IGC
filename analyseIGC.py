@@ -12,7 +12,9 @@ from FichierIGC import FichierIGC
 #path="NetCoupe2020_9811_Mazalerat_11_juillet_2020.igc"
 #path="NetCoupe2020_22.igc"
 #path="NetCoupe2020_2658.igc"
-path="20210416 Bondues 16 avril 2021 Jean Astir DN.igc"
+#path="20210416 Bondues 16 avril 2021 Jean Astir DN.igc"
+#path="NetCoupe2021_6898_Alexandre_Fierain_7_mai_2021.igc"
+path="20210529 Bondues 29 mai 2021 Discus GI.igc"
 flight=FichierIGC(path)
 lesLifts=flight.make_les_lifts()
 print (len(lesLifts))

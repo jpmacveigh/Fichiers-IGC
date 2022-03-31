@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 class LigneI:
     ''' Description des informations complémetaires éventuelles dans les lignesB  '''
     def __init__(self,ligneI):

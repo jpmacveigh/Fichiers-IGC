@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from LigneI import LigneI
 from LigneB import LigneB
 from LigneK import LigneK
@@ -60,9 +59,10 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                 elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
                     if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
                         self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
-        for i in range(1,len(self.lignesB)) :  # on flague les LignesB pour lesquelles la vitesse est supérieur à un seuil
+        for i in range(1,len(self.lignesB)) :  # on flague comme "inFlight" les LignesB pour lesquelles la vitesse est supérieur à un seuil
             #print(i,self.getCapVitesse(i)[1],self.lignesB[i-1].affiche(),self.lignesB[i].affiche())
             if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
+        self.lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True]
         self.fichierIgc.close()   # fermeture du fichier IGC
     
     def make_SQLITE3_file (self):
@@ -115,14 +115,18 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         conn.commit()
         conn.close()
         
-    def send_sqlite_to_s3(self):
-            # stockage du fichier créé dans un bucket de AWS S3
+    def send_les_fichiers_to_s3(self):
+            # stockage du fichier sqlite créé dans un bucket de AWS S3
             bucket_name="volavoile"
             s3 = boto3.resource('s3')
             #s3.Object(bucket_name,'newfile.txt').put(Body=content)
             s3.Object(bucket_name,'igc_tempo.sqlite').put(Body=open(self.path_sqlite3,'rb'))
-   
+            s3.Object(bucket_name,self.path_sqlite3).put(Body=open(self.path_sqlite3,'rb'))
+            s3.Object(bucket_name,self.path).put(Body=open(self.path,'rb'))
     def commande_insert(self,table_name,liste_champs,liste_valeurs):
+        """
+        Squelette d'une commande SQL INSERT
+        """
         cmd='INSERT INTO '+table_name+' ('
         for champ in liste_champs:
             cmd=cmd+champ+','
@@ -133,11 +137,14 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         return (cmd)
 
     def make_les_ellipses(self):
+        """
+        On entoure tous les points de chaque chaque ascendance dans une elipse
+        """
         conn=sqlite3.connect(self.path_sqlite3)
         res=conn.execute("SELECT ts_deb,ts_fin FROM ascendances").fetchall()  # lecture des ts de debut et fin des acendances
         conn.commit()
         num_asc=0
-        for asc in self.lesLifts  :      # itérations sur les ascendances identifiées dans lle fichier IGC
+        for asc in self.lesLifts  :      # itérations sur les ascendances identifiées dans le fichier IGC
             cmd="SELECT longi,lati FROM positions WHERE ts>="
             cmd=cmd+str(res[num_asc][0])+" AND ts<="+str(res[num_asc][1])
             print (cmd)
@@ -168,7 +175,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
             #plot_ellipse(enclosing_ellipse, str='k--')  # plot resulting ellipse
             #plt.show()
             num_asc=num_asc+1
-        self.send_sqlite_to_s3()    
+        self.send_les_fichiers_to_s3()    
     def getDateTime(self,rangLigneB):
         ''' retourne la date et heure UTC d'une position '''
         return datetime.datetime.utcfromtimestamp(self.getTimeStamp(rangLigneB))
@@ -223,7 +230,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         ''' Détermine les positions en vol qui sont dans une ascendance '''
         res=[]
         deltat_lim=30         # durée de la fenêtre temporelle (s)
-        seuil_z=30            # seuil d'élévation minimale sur le fenêtre teporelle (m)
+        seuil_z=30            # seuil d'élévation minimale sur la fenêtre teporelle (m)
         #distance_test=1500  # distance minimale (m)
         lesLignes=[]    # les positions qui sont dans la fenêtre temporelle
         lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True] 
@@ -246,33 +253,53 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         return (res)
 
     def make_les_lifts(self):  # renvoi la listes des asendances du ficheir IGC
-        ''' renvoi la liste des asendances du ficheir IGC '''
+        ''' Renvoi la liste des asendances du ficheir IGC '''
         res=[]
-        self.look_for_lift()
+        self.look_for_lift() # Recherche des positions qui sont dans une ascendance
         lesLifts=[]
-        lift=[]
-        for ligne in self.lignesB:
+        lift=[]  # une acsendance vide
+        for ligne in self.lignesB:  # itération sur toutes les positions
             if not(ligne.isLift) :   # si la position est n'est pas dans une ascendance
                 if len(lift) >0 : 
                     lesLifts.append(lift)
                     lift=[]
             else :                   # la posiiotn est dans une ascendance
                 lift.append(ligne)
-        if len(lift)>0 : lesLifts.append(lift)
+        if len(lift)>0 : lesLifts.append(lift)  # on ajoute l'escendance à la listes des ascendances
         for lift in lesLifts :
             if len(lift)>1 :
                 asc=Lift(lift)   # on fabrique un objet "Lift"
-                if (asc.duree>=30) : # on ne retient que les ascendances de plus de 30 secondes
+                if (asc.duree>=60) : # on ne retient que les ascendances de plus de 60 secondes
                     res.append(asc)  # que l'on ajoute à la listes des ascendances
         self.lesLifts=res
         return (res)
 
     def make_histogramme_des_vitesses(self):
-        ''' trace l'histogramme des vitesses de toutes les LignesB '''
+        """
+        Trace l'histogramme des vitesses de toutes les LignesB
+        """
         data=[]
         for i in range(1,len(self.lignesB)):
             data.append(self.getCapVitesse(i)[1])
         trace_histogramme(data,self.path,"Vitesses (Km/h)",100,-20.,200.)
+    
+    def getAltitudeMaxi(self):
+        """
+        Renvoi la position la plus elevée du fichier
+        """
+        max=-5000.
+        for ligne in self.lignesB:
+            if ligne.gpsAlt > max :
+                max=ligne.gpsAlt
+                ligneMax=ligne
+        return (ligneMax,max)
+    
+    def positionTakeOff(self):
+        """
+        Renvoi la position du décollage
+        """
+        return (self.lesInFlights[0])
+
     
     def affiche(self):
         #print (self.__dict__)

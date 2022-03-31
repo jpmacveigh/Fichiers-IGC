@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="1de72182-e66e-49ef-bbde-fd663773862b" name="Default" comment="" />
+    <list default="true" id="1de72182-e66e-49ef-bbde-fd663773862b" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/20210416 Bondues 16 avril 2021 Jean Astir DN.sqlite" beforeDir="false" afterPath="$PROJECT_DIR$/20210416 Bondues 16 avril 2021 Jean Astir DN.sqlite" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Essai Anydbm.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FichierIGC.py" beforeDir="false" afterPath="$PROJECT_DIR$/FichierIGC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analyseIGC.py" beforeDir="false" afterPath="$PROJECT_DIR$/analyseIGC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_anydbm" beforeDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -11,7 +18,11 @@
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
   <component name="ProjectId" id="1SMdwI5kuqnJWsFPDVsZIwZqDc8" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
     <property name="last_opened_file_path" value="$USER_HOME$/AppData/Local/Programs/Python/Python36-32/python.exe" />
@@ -189,5 +200,18 @@
       <updated>1488320357384</updated>
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>
