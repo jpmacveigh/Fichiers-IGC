@@ -4,8 +4,8 @@ import datetime
 import traceback
 class LigneB:
     ''' une position (fix) décrite dans le fichier igc '''
-    def __init__(self,ligneB,ligneI):
-        self.date=""
+    def __init__(self,ligneB,ligneI,date):
+        self.date=date
         self.isOK=False          # si la LigneB est syntaxiquement correcte
         self.isLift=False        # si elle est dans une ascendance
         self.isInFlight=False    # si elle est pendant le vol (vitesse > 25 km/h)
@@ -30,6 +30,7 @@ class LigneB:
             self.pressAlt=float(self.intpressAlt)
             self.intgpsAlt=ligneB[30:35]        # altitude au dessus du géoïde  : aaaaa(m)
             self.gpsAlt=float(self.intgpsAlt)
+            self.timestamp=self.getTimeStamp()
             if ligneI.nbParam != 0:             # décodage de la partie de la ligneB décrite par la ligneI
                 for i in range(ligneI.nbParam):
                     (deb,fin,code)=ligneI.codes[i]
@@ -38,9 +39,10 @@ class LigneB:
 
         except Exception as e :
             print ("exception dans LigneB: ",e)  # alors la ligneB sera déclarée no OK
+            self.isOK=False
             print (self.ligneB)
             traceback.print_exc()
-            exit()
+            #exit()
     
     def getTimeStamp (self):
         ''' retourne le timestamp d'une ligneB (position) '''

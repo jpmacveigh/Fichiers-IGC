@@ -1,3 +1,4 @@
+from pandas import Timestamp
 from LigneI import LigneI
 from LigneB import LigneB
 from LigneK import LigneK
@@ -7,6 +8,7 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 import os
+import traceback
 import sqlite3
 import boto3
 from distanceOrthodromique import distanceOrthodromique
@@ -17,52 +19,58 @@ from trace_histogramme import trace_histogramme
 class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par exemple)
     def __init__(self,path):   # constructeur à partir du path du ficier IGC
         #print ("nom du fichier igc : ",path)
-        self.path=path
-        self.fichierIgc = open(path,"r")   # ouverture du fichier IGC en lecture seule
-        self.lignesB=[]
-        self.lignesA=[]
-        self.lignesH=[]
-        self.lignesI=[]
-        self.lignesJ=[]
-        self.lignesG=[]
-        self.lignesK=[]
-        self.date="ddmmyy"
-        heure_prec_ligneB="000000"
-        for ligne in self.fichierIgc:           # itération sur toutes les lignes du ficheir IGC et on en teste le premier caractère
-            ligne=ligne.replace("\n","")        # supression du caractère de fin de ligne
-            if len(ligne) >0:                   # on ne traite pas les lignes vides, car j'en ai trouvé !
-                if ligne[0].upper() == "A" :    # ligne A : première ligne obligatoire
-                    self.lignesA.append(ligne)
-                elif ligne[0].upper() == "H" : # lignes H : en-tête
-                    self.lignesH.append(ligne)
-                    if   ligne[1:10].upper()=="FDTEDATE:":  # nouvelle norme IGC après 2015
-                        self.date=ligne[10:16]      # date du vol : ddmmyy
-                    elif ligne[1:5].upper()=="FDTE":  # recherche de la date du vol
-                        self.date=ligne[5:11]       # date du vol : ddmmyy
-                elif ligne[0].upper() == "I" :  # ligne I : (optionnelle) Précise les compléments des lignesB (vitessse sol(gsp), true track(trt), etc.)
-                    ligneI=LigneI(ligne)
-                    if ligneI.isOK : self.lignesI.append(ligneI) # on ignore les ligneI mal formées
-                elif ligne[0].upper() == "J" :  # ligne J : (optionnelle) Précise le contenu des lignesK
-                    self.lignesJ.append(LigneJ(ligne))
-                elif ligne[0].upper() == "B" :  # lignes B : les positions GPS (fix) à des heures régulièrement espacées
-                    ligneB=None
-                    if len(self.lignesI)!=0:
-                        ligneB=LigneB(ligne,self.lignesI[0])
-                    else:
-                        ligneB=LigneB(ligne,LigneI("I000000000"))  # cas où il n'y a pas de ligneI
-                    ligneB.date=self.date   # on initialise le paramètre "date" de la LigneB
-                    if ligneB.isOK and (not ligneB.heureUTC==heure_prec_ligneB) :  # on ignore les lignesB mal formées et deux consécutives qui portent la même heure   
-                        self.lignesB.append(ligneB)   
-                        heure_prec_ligneB=ligneB.heureUTC               
-                elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
-                    self.lignesG.append(ligne)
-                elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
-                    if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
-                        self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
-        for i in range(1,len(self.lignesB)) :  # on flague comme "inFlight" les LignesB pour lesquelles la vitesse est supérieur à un seuil
-            #print(i,self.getCapVitesse(i)[1],self.lignesB[i-1].affiche(),self.lignesB[i].affiche())
-            if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
-        self.lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True]
+        self.isOK=False
+        try:
+            self.path=path
+            self.fichierIgc = open(path,"r")   # ouverture du fichier IGC en lecture seule
+            self.lignesB=[]
+            self.lignesA=[]
+            self.lignesH=[]
+            self.lignesI=[]
+            self.lignesJ=[]
+            self.lignesG=[]
+            self.lignesK=[]
+            self.date="ddmmyy"
+            heure_prec_ligneB="000000"
+            for ligne in self.fichierIgc:           # itération sur toutes les lignes du ficheir IGC et on en teste le premier caractère
+                ligne=ligne.replace("\n","")        # supression du caractère de fin de ligne
+                if len(ligne) >0:                   # on ne traite pas les lignes vides, car j'en ai trouvées !
+                    if ligne[0].upper() == "A" :    # ligne A : première ligne obligatoire
+                        self.lignesA.append(ligne)
+                    elif ligne[0].upper() == "H" : # lignes H : en-tête
+                        self.lignesH.append(ligne)
+                        if   ligne[1:10].upper()=="FDTEDATE:":  # nouvelle norme IGC après 2015
+                            self.date=ligne[10:16]      # date du vol : ddmmyy
+                        elif ligne[1:5].upper()=="FDTE":  # recherche de la date du vol
+                            self.date=ligne[5:11]       # date du vol : ddmmyy
+                    elif ligne[0].upper() == "I" :  # ligne I : (optionnelle) Précise les compléments des lignesB (vitessse sol(gsp), true track(trt), etc.)
+                        ligneI=LigneI(ligne)
+                        if ligneI.isOK : self.lignesI.append(ligneI) # on ignore les ligneI mal formées
+                    elif ligne[0].upper() == "J" :  # ligne J : (optionnelle) Précise le contenu des lignesK
+                        self.lignesJ.append(LigneJ(ligne))
+                    elif ligne[0].upper() == "B" :  # lignes B : les positions GPS (fix) à des heures régulièrement espacées
+                        ligneB=None
+                        if len(self.lignesI)!=0:
+                            ligneB=LigneB(ligne,self.lignesI[0],self.date)
+                        else:
+                            ligneB=LigneB(ligne,LigneI("I000000000"),self.date)  # cas où il n'y a pas de ligneI
+                        if ligneB.isOK and (not ligneB.heureUTC==heure_prec_ligneB) :  # on ignore les lignesB mal formées et deux consécutives qui portent la même heure   
+                            self.lignesB.append(ligneB)   
+                            heure_prec_ligneB=ligneB.heureUTC               
+                    elif ligne[0].upper() == "G" :  # lignes G : informations de validation du fichier IGC
+                        self.lignesG.append(ligne)
+                    elif ligne[0].upper() == "K" :  # lignes K : informations à des heures non régulières (wind direction (wdi), wind speed (wve), etc.)
+                        if len(self.lignesJ)!=0:    #  on ignore les ligneK quand il n'existe pas de ligneJ
+                            self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
+            for i in range(1,len(self.lignesB)) :  # on flague comme "inFlight" les LignesB pour lesquelles la vitesse est supérieure à un seuil
+                #print(i,self.getCapVitesse(i)[1],self.lignesB[i-1].affiche(),self.lignesB[i].affiche())
+                if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
+            self.lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True]
+        except Exception as e :
+            print ("exception dans FichierIGC: ",e)  # alors le fichier IGC sera déclaré no OK
+            self.isOK=False
+            print (self.path)
+            traceback.print_exc() 
         self.fichierIgc.close()   # fermeture du fichier IGC
     
     def make_SQLITE3_file (self):
@@ -182,7 +190,7 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
     
     def getTimeStamp (self,rangLigneB):
         ''' retourne le timestamp d'une position '''
-        return int(self.lignesB[rangLigneB].getTimeStamp())
+        return int(self.lignesB[rangLigneB].timestamp)
 
     def getDeltaSecondes (self,rangLigneB):
         ''' retourne la durée écoulée (s) depuis la position précédante '''
@@ -288,11 +296,12 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
         Renvoi la position la plus elevée du fichier
         """
         max=-5000.
-        for ligne in self.lignesB:
-            if ligne.gpsAlt > max :
-                max=ligne.gpsAlt
-                ligneMax=ligne
-        return (ligneMax,max)
+        for ligneB in self.lignesB:
+            alti=ligneB.gpsAlt
+            if alti>max :
+                max=alti
+                ligneBMax=ligneB
+        return (ligneBMax,max)
     
     def positionTakeOff(self):
         """
