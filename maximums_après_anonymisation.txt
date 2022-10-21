@@ -1,0 +1,1 @@
+{"path": "/Users/jeanpierremacveigh/Documents/Netcoupe/netcoupe/NetCoupe2015_23344_new.igc", "dec_date": "220815", "dec_heure": "091417", "nearest_dist": 365.36331445706514, "nearest": "VINON", "maxi_date": "220815", "maxi_heure": "114535", "maxi_longi": 6.70345, "maxi_lati": 44.81856666666667, "altiMax": 3313.0}

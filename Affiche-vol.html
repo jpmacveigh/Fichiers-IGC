@@ -96,7 +96,7 @@
 					console.log(lesPoints);
 					L.polyline(lesPoints,{color:"red"}).addTo(macarte);  // tracé des points de l'ellipse
 					//L.marker([lati_centre,longi_centre], {icon: redIcon}).addTo(macarte);	// ajout d'un marker au centre de l'ellipse			
-					var popup="N° : "+i+"<br>"+res["ascendances"][i]["date_deb"]+"&nbsp à : "+res["ascendances"][i]["date_fin"]+"&nbsp durée: "+res["ascendances"][i]["duree"]+" sec";
+					var popup="N° : "+i+"<br>"+res["ascendances"][i]["date_deb_UTC"]+"&nbsp à : "+res["ascendances"][i]["date_fin_UTC"]+"&nbsp durée: "+res["ascendances"][i]["duree"]+" sec";
 					popup=popup+"<br>"+res["ascendances"][i]["alti_deb"] +" m &nbsp à : "+res["ascendances"][i]["alti_fin"] +" m &nbsp gain: "+res["ascendances"][i]["gain_alti"] +" m";
 					popup=popup+"&nbsp vz: "+res["ascendances"][i]["vz_moy"].toFixed(1) +" m/s";
         			var options = {
@@ -112,10 +112,13 @@
 				var legend = L.control({position: 'topright'})
 				legend.onAdd = function () {
 					var div = L.DomUtil.create();
-					div.innerHTML +='<div style="font-size:28px">';
-					div.innerHTML +="Départ : "+res["points"][0]["ts"];
+					div.innerHTML +='<div style="font-size:32px">';
+					div.innerHTML +="<br>Fichier : "+res["fichier"];	
+					div.innerHTML +="<br>Début (UTC) : "+res["date_deb_vol_UTC"];
+					div.innerHTML +="<br>Fin (UTC) : "+res["date_fin_vol_UTC"];
+					div.innerHTML +="<br>Durée : "+res["durée_vol"];
 					div.innerHTML +="<br>Nombre de points : "+res["nb_points"];
-					div.innerHTML +="<br>Distance : "+res["fichier"]+"</div>";
+					div.innerHTML +="</div>";
 					return div;
 				};
 				legend.addTo(macarte);

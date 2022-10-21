@@ -10,12 +10,17 @@ from FichierIGC import FichierIGC
 #path="20200521 Bondues 21 mai 2020 Pégas EM.igc"
 #path="NetCoupe2020_7555.igc"
 #path="NetCoupe2020_9811_Mazalerat_11_juillet_2020.igc"
+path="NetCoupe2016_10005_new.igc"
 #path="NetCoupe2020_22.igc"
 #path="NetCoupe2020_2658.igc"
 #path="20210416 Bondues 16 avril 2021 Jean Astir DN.igc"
 #path="NetCoupe2021_6898_Alexandre_Fierain_7_mai_2021.igc"
-path="20210529 Bondues 29 mai 2021 Discus GI.igc"
+#path="20210529 Bondues 29 mai 2021 Discus GI.igc"
+#path="new.igc"
 flight=FichierIGC(path)
+print(flight.altiDecollage)
+
+
 lesLifts=flight.make_les_lifts()
 print (len(lesLifts))
 i=1

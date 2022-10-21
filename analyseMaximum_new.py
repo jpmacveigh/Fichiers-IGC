@@ -42,20 +42,13 @@ def analyseMaxiAltitude(path,write=True):
                 "altiMax":maximum[1]
             })+"\n")
 
-"""
-path="J:\\OneDrive\\Vol a voile\\Fichiers igc degribes\\NetCoupe2011_22648.igc"
-pathAD= "E:\\Jean Pierre\OneDrive\Vol a voile\Fichiers igc degribes\\NetCoupe2011_15890.igc"
-analyseMaxiAltitude(path,False)
-"""
 import os
-file=open("maximums.txt","w") # fichier qui va recevoir les résultats
-dir=   "J:\OneDrive\Vol a voile\Fichiers igc degribes"  # PC fixe
-dirAD= "E:\\Jean Pierre\OneDrive\Vol a voile\Fichiers igc degribes" # PC portable AD
-leDir=dir
-paths=os.listdir(leDir)
-lesPaths =[leDir+"\\"+x for x in paths]
-for i in range(150000):
-    path=lesPaths[i]
-    print(path)
-    analyseMaxiAltitude(path,False)
+file=open("maximums_new.txt","w") # fichier qui va recevoir les résultats
+leDir=".\\NetCoupe"
+lesPaths=os.listdir(leDir)
+for path in lesPaths :
+    name,ext=path.split(".")
+    if (ext=="igc" and "new" in name):
+        print(path)
+        analyseMaxiAltitude(leDir+"\\"+path,True)
 file.close()

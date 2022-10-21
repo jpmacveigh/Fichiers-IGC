@@ -1,4 +1,3 @@
-from pandas import Timestamp
 from LigneI import LigneI
 from LigneB import LigneB
 from LigneK import LigneK
@@ -64,12 +63,22 @@ class FichierIGC:    # Un fichier IGC tel qu'il est fourni par un Oudie2 (par ex
                             self.lignesK.append(LigneK(ligne,self.lignesJ[0]))
             for i in range(1,len(self.lignesB)) :  # on flague comme "inFlight" les LignesB pour lesquelles la vitesse est supérieure à un seuil
                 #print(i,self.getCapVitesse(i)[1],self.lignesB[i-1].affiche(),self.lignesB[i].affiche())
-                if (self.getCapVitesse(i)[1]>=25.): self.lignesB[i].isInFlight=True
+                if (self.getCapVitesse(i)[1]>=25.):
+                    self.lignesB[i].isInFlight=True
+                    self.lignesB[i].cap_vitesse=self.getCapVitesse(i)
             self.lesInFlights=[ligne for ligne in self.lignesB if ligne.isInFlight==True]
+            self.altiDecollage=self.positionTakeOff().gpsAlt
+            poids_planeur=400. # poids du planeur en kg
+            for ligne in self.lesInFlights:
+                ligne.energie_potentielle=poids_planeur*9.81*(ligne.gpsAlt-self.altiDecollage) # l'énergie potentielle du planeur à cette position
+                vms=ligne.cap_vitesse[1]/3.6 # vitesse du planeur en m/s
+                ligne.energie_cinétique=0.5*poids_planeur*vms*vms # l'énergie cinétique du planeur à cette position
+                #print(ligne.energie_potentielle,ligne.cap_vitesse[1],ligne.energie_cinétique)
+            self.isOK=True
         except Exception as e :
-            print ("exception dans FichierIGC: ",e)  # alors le fichier IGC sera déclaré no OK
+            #print ("exception dans FichierIGC: ",e)  # alors le fichier IGC sera déclaré no OK
             self.isOK=False
-            print (self.path)
+            print ("Fichier IGC incorrect :",self.path)
             traceback.print_exc() 
         self.fichierIgc.close()   # fermeture du fichier IGC
     
